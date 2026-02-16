@@ -26,19 +26,17 @@ type Session struct {
 	StartedAt string  `json:"started_at"`
 	EndedAt   *string `json:"ended_at,omitempty"`
 	Summary   *string `json:"summary,omitempty"`
-	Status    string  `json:"status"`
 }
 
 type Observation struct {
-	ID            int64   `json:"id"`
-	SessionID     string  `json:"session_id"`
-	Type          string  `json:"type"`
-	Title         string  `json:"title"`
-	Content       string  `json:"content"`
-	ToolName      *string `json:"tool_name,omitempty"`
-	Project       *string `json:"project,omitempty"`
-	CreatedAt     string  `json:"created_at"`
-	SessionStatus string  `json:"session_status,omitempty"` // Populated by AllObservations for TUI
+	ID        int64   `json:"id"`
+	SessionID string  `json:"session_id"`
+	Type      string  `json:"type"`
+	Title     string  `json:"title"`
+	Content   string  `json:"content"`
+	ToolName  *string `json:"tool_name,omitempty"`
+	Project   *string `json:"project,omitempty"`
+	CreatedAt string  `json:"created_at"`
 }
 
 type SearchResult struct {
@@ -52,7 +50,6 @@ type SessionSummary struct {
 	StartedAt        string  `json:"started_at"`
 	EndedAt          *string `json:"ended_at,omitempty"`
 	Summary          *string `json:"summary,omitempty"`
-	Status           string  `json:"status"`
 	ObservationCount int     `json:"observation_count"`
 }
 
@@ -193,8 +190,7 @@ func (s *Store) migrate() error {
 			directory  TEXT NOT NULL,
 			started_at TEXT NOT NULL DEFAULT (datetime('now')),
 			ended_at   TEXT,
-			summary    TEXT,
-			status     TEXT NOT NULL DEFAULT 'active'
+			summary    TEXT
 		);
 
 		CREATE TABLE IF NOT EXISTS observations (
@@ -328,7 +324,7 @@ func (s *Store) CreateSession(id, project, directory string) error {
 
 func (s *Store) EndSession(id string, summary string) error {
 	_, err := s.db.Exec(
-		`UPDATE sessions SET ended_at = datetime('now'), status = 'completed', summary = ? WHERE id = ?`,
+		`UPDATE sessions SET ended_at = datetime('now'), summary = ? WHERE id = ?`,
 		nullableString(summary), id,
 	)
 	return err
@@ -336,10 +332,10 @@ func (s *Store) EndSession(id string, summary string) error {
 
 func (s *Store) GetSession(id string) (*Session, error) {
 	row := s.db.QueryRow(
-		`SELECT id, project, directory, started_at, ended_at, summary, status FROM sessions WHERE id = ?`, id,
+		`SELECT id, project, directory, started_at, ended_at, summary FROM sessions WHERE id = ?`, id,
 	)
 	var sess Session
-	if err := row.Scan(&sess.ID, &sess.Project, &sess.Directory, &sess.StartedAt, &sess.EndedAt, &sess.Summary, &sess.Status); err != nil {
+	if err := row.Scan(&sess.ID, &sess.Project, &sess.Directory, &sess.StartedAt, &sess.EndedAt, &sess.Summary); err != nil {
 		return nil, err
 	}
 	return &sess, nil
@@ -351,48 +347,7 @@ func (s *Store) RecentSessions(project string, limit int) ([]SessionSummary, err
 	}
 
 	query := `
-		SELECT s.id, s.project, s.started_at, s.ended_at, s.summary, s.status,
-		       COUNT(o.id) as observation_count
-		FROM sessions s
-		LEFT JOIN observations o ON o.session_id = s.id
-		WHERE s.status = 'completed'
-	`
-	args := []any{}
-
-	if project != "" {
-		query += " AND s.project = ?"
-		args = append(args, project)
-	}
-
-	query += " GROUP BY s.id ORDER BY s.ended_at DESC LIMIT ?"
-	args = append(args, limit)
-
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []SessionSummary
-	for rows.Next() {
-		var ss SessionSummary
-		if err := rows.Scan(&ss.ID, &ss.Project, &ss.StartedAt, &ss.EndedAt, &ss.Summary, &ss.Status, &ss.ObservationCount); err != nil {
-			return nil, err
-		}
-		results = append(results, ss)
-	}
-	return results, rows.Err()
-}
-
-// AllSessions returns recent sessions regardless of status (for TUI browsing).
-// Active sessions are sorted to the top.
-func (s *Store) AllSessions(project string, limit int) ([]SessionSummary, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-
-	query := `
-		SELECT s.id, s.project, s.started_at, s.ended_at, s.summary, s.status,
+		SELECT s.id, s.project, s.started_at, s.ended_at, s.summary,
 		       COUNT(o.id) as observation_count
 		FROM sessions s
 		LEFT JOIN observations o ON o.session_id = s.id
@@ -405,7 +360,7 @@ func (s *Store) AllSessions(project string, limit int) ([]SessionSummary, error)
 		args = append(args, project)
 	}
 
-	query += " GROUP BY s.id ORDER BY (s.status = 'active') DESC, s.started_at DESC LIMIT ?"
+	query += " GROUP BY s.id ORDER BY s.started_at DESC LIMIT ?"
 	args = append(args, limit)
 
 	rows, err := s.db.Query(query, args...)
@@ -417,7 +372,7 @@ func (s *Store) AllSessions(project string, limit int) ([]SessionSummary, error)
 	var results []SessionSummary
 	for rows.Next() {
 		var ss SessionSummary
-		if err := rows.Scan(&ss.ID, &ss.Project, &ss.StartedAt, &ss.EndedAt, &ss.Summary, &ss.Status, &ss.ObservationCount); err != nil {
+		if err := rows.Scan(&ss.ID, &ss.Project, &ss.StartedAt, &ss.EndedAt, &ss.Summary, &ss.ObservationCount); err != nil {
 			return nil, err
 		}
 		results = append(results, ss)
@@ -425,27 +380,27 @@ func (s *Store) AllSessions(project string, limit int) ([]SessionSummary, error)
 	return results, rows.Err()
 }
 
-// AllObservations returns recent observations regardless of session status (for TUI browsing).
-// Observations from active sessions are sorted to the top.
-func (s *Store) AllObservations(project string, limit int) ([]Observation, error) {
+// AllSessions returns recent sessions ordered by most recent first (for TUI browsing).
+func (s *Store) AllSessions(project string, limit int) ([]SessionSummary, error) {
 	if limit <= 0 {
-		limit = s.cfg.MaxContextResults
+		limit = 50
 	}
 
 	query := `
-		SELECT o.id, o.session_id, o.type, o.title, o.content, o.tool_name, o.project, o.created_at,
-		       s.status
-		FROM observations o
-		JOIN sessions s ON s.id = o.session_id
+		SELECT s.id, s.project, s.started_at, s.ended_at, s.summary,
+		       COUNT(o.id) as observation_count
+		FROM sessions s
+		LEFT JOIN observations o ON o.session_id = s.id
+		WHERE 1=1
 	`
 	args := []any{}
 
 	if project != "" {
-		query += " WHERE o.project = ?"
+		query += " AND s.project = ?"
 		args = append(args, project)
 	}
 
-	query += " ORDER BY (s.status = 'active') DESC, o.created_at DESC LIMIT ?"
+	query += " GROUP BY s.id ORDER BY s.started_at DESC LIMIT ?"
 	args = append(args, limit)
 
 	rows, err := s.db.Query(query, args...)
@@ -454,17 +409,38 @@ func (s *Store) AllObservations(project string, limit int) ([]Observation, error
 	}
 	defer rows.Close()
 
-	var results []Observation
+	var results []SessionSummary
 	for rows.Next() {
-		var o Observation
-		var sessionStatus string
-		if err := rows.Scan(&o.ID, &o.SessionID, &o.Type, &o.Title, &o.Content, &o.ToolName, &o.Project, &o.CreatedAt, &sessionStatus); err != nil {
+		var ss SessionSummary
+		if err := rows.Scan(&ss.ID, &ss.Project, &ss.StartedAt, &ss.EndedAt, &ss.Summary, &ss.ObservationCount); err != nil {
 			return nil, err
 		}
-		o.SessionStatus = sessionStatus
-		results = append(results, o)
+		results = append(results, ss)
 	}
 	return results, rows.Err()
+}
+
+// AllObservations returns recent observations ordered by most recent first (for TUI browsing).
+func (s *Store) AllObservations(project string, limit int) ([]Observation, error) {
+	if limit <= 0 {
+		limit = s.cfg.MaxContextResults
+	}
+
+	query := `
+		SELECT o.id, o.session_id, o.type, o.title, o.content, o.tool_name, o.project, o.created_at
+		FROM observations o
+	`
+	args := []any{}
+
+	if project != "" {
+		query += " WHERE o.project = ?"
+		args = append(args, project)
+	}
+
+	query += " ORDER BY o.created_at DESC LIMIT ?"
+	args = append(args, limit)
+
+	return s.queryObservations(query, args...)
 }
 
 // SessionObservations returns all observations for a specific session.
@@ -514,13 +490,11 @@ func (s *Store) RecentObservations(project string, limit int) ([]Observation, er
 	query := `
 		SELECT o.id, o.session_id, o.type, o.title, o.content, o.tool_name, o.project, o.created_at
 		FROM observations o
-		JOIN sessions s ON s.id = o.session_id
-		WHERE s.status = 'completed'
 	`
 	args := []any{}
 
 	if project != "" {
-		query += " AND o.project = ?"
+		query += " WHERE o.project = ?"
 		args = append(args, project)
 	}
 
@@ -882,7 +856,7 @@ func (s *Store) Export() (*ExportData, error) {
 
 	// Sessions
 	rows, err := s.db.Query(
-		"SELECT id, project, directory, started_at, ended_at, summary, status FROM sessions ORDER BY started_at",
+		"SELECT id, project, directory, started_at, ended_at, summary FROM sessions ORDER BY started_at",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("export sessions: %w", err)
@@ -890,7 +864,7 @@ func (s *Store) Export() (*ExportData, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var sess Session
-		if err := rows.Scan(&sess.ID, &sess.Project, &sess.Directory, &sess.StartedAt, &sess.EndedAt, &sess.Summary, &sess.Status); err != nil {
+		if err := rows.Scan(&sess.ID, &sess.Project, &sess.Directory, &sess.StartedAt, &sess.EndedAt, &sess.Summary); err != nil {
 			return nil, err
 		}
 		data.Sessions = append(data.Sessions, sess)
@@ -952,9 +926,9 @@ func (s *Store) Import(data *ExportData) (*ImportResult, error) {
 	// Import sessions (skip duplicates)
 	for _, sess := range data.Sessions {
 		res, err := tx.Exec(
-			`INSERT OR IGNORE INTO sessions (id, project, directory, started_at, ended_at, summary, status)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			sess.ID, sess.Project, sess.Directory, sess.StartedAt, sess.EndedAt, sess.Summary, sess.Status,
+			`INSERT OR IGNORE INTO sessions (id, project, directory, started_at, ended_at, summary)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			sess.ID, sess.Project, sess.Directory, sess.StartedAt, sess.EndedAt, sess.Summary,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("import session %s: %w", sess.ID, err)

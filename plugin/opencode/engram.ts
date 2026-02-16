@@ -230,22 +230,6 @@ export const Engram: Plugin = async (ctx) => {
         }
       }
 
-      // --- Session Idle (completed) ---
-      if (event.type === "session.idle") {
-        const sessionId = (event.properties as any)?.id
-        if (sessionId) {
-          const count = toolCounts.get(sessionId) ?? 0
-          await engramFetch(`/sessions/${sessionId}/end`, {
-            method: "POST",
-            body: {
-              summary: `Session on ${project} — ${count} tool calls`,
-            },
-          })
-          toolCounts.delete(sessionId)
-          knownSessions.delete(sessionId)
-        }
-      }
-
       // --- Session Deleted ---
       if (event.type === "session.deleted") {
         const sessionId = (event.properties as any)?.id

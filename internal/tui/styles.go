@@ -125,11 +125,6 @@ var (
 	contentPreviewStyle = lipgloss.NewStyle().
 				Foreground(colorSubtext).
 				PaddingLeft(4)
-
-	// Active session badge
-	activeBadgeStyle = lipgloss.NewStyle().
-				Foreground(colorGreen).
-				Bold(true)
 )
 
 // ─── Detail View Styles ──────────────────────────────────────────────────────

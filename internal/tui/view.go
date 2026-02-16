@@ -142,7 +142,7 @@ func (m Model) viewSearchResults() string {
 
 	for i := m.Scroll; i < end; i++ {
 		r := m.SearchResults[i]
-		b.WriteString(m.renderObservationListItem(i, r.ID, r.Type, r.Title, r.Content, r.CreatedAt, r.Project, r.SessionStatus))
+		b.WriteString(m.renderObservationListItem(i, r.ID, r.Type, r.Title, r.Content, r.CreatedAt, r.Project))
 	}
 
 	// Scroll indicator
@@ -185,7 +185,7 @@ func (m Model) viewRecent() string {
 
 	for i := m.Scroll; i < end; i++ {
 		o := m.RecentObservations[i]
-		b.WriteString(m.renderObservationListItem(i, o.ID, o.Type, o.Title, o.Content, o.CreatedAt, o.Project, o.SessionStatus))
+		b.WriteString(m.renderObservationListItem(i, o.ID, o.Type, o.Title, o.Content, o.CreatedAt, o.Project))
 	}
 
 	if count > visibleItems {
@@ -365,7 +365,7 @@ func (m Model) viewSessions() string {
 	b.WriteString("\n")
 
 	if count == 0 {
-		b.WriteString(noResultsStyle.Render("No completed sessions yet."))
+		b.WriteString(noResultsStyle.Render("No sessions yet."))
 		b.WriteString("\n\n")
 		b.WriteString(helpStyle.Render("  esc back"))
 		return b.String()
@@ -390,20 +390,14 @@ func (m Model) viewSessions() string {
 			style = listSelectedStyle
 		}
 
-		badge := ""
-		if s.Status == "active" {
-			badge = " " + activeBadgeStyle.Render("(active)")
-		}
-
 		summary := ""
 		if s.Summary != nil {
 			summary = truncateStr(*s.Summary, 50)
 		}
 
-		line := fmt.Sprintf("%s%s%s  %s  %s obs  %s",
+		line := fmt.Sprintf("%s%s  %s  %s obs  %s",
 			cursor,
 			projectStyle.Render(fmt.Sprintf("%-20s", s.Project)),
-			badge,
 			timestampStyle.Render(s.StartedAt),
 			statNumberStyle.Render(fmt.Sprintf("%d", s.ObservationCount)),
 			style.Render(summary))
@@ -435,11 +429,7 @@ func (m Model) viewSessionDetail() string {
 	}
 
 	sess := m.Sessions[m.SelectedSessionIdx]
-	statusBadge := ""
-	if sess.Status == "active" {
-		statusBadge = " (active)"
-	}
-	header := fmt.Sprintf("  Session: %s%s — %s", sess.Project, statusBadge, sess.StartedAt)
+	header := fmt.Sprintf("  Session: %s — %s", sess.Project, sess.StartedAt)
 	b.WriteString(headerStyle.Render(header))
 	b.WriteString("\n")
 
@@ -473,7 +463,7 @@ func (m Model) viewSessionDetail() string {
 
 	for i := m.SessionDetailScroll; i < end; i++ {
 		o := m.SessionObservations[i]
-		b.WriteString(m.renderObservationListItem(i, o.ID, o.Type, o.Title, o.Content, o.CreatedAt, o.Project, o.SessionStatus))
+		b.WriteString(m.renderObservationListItem(i, o.ID, o.Type, o.Title, o.Content, o.CreatedAt, o.Project))
 	}
 
 	if count > visibleItems {
@@ -488,7 +478,7 @@ func (m Model) viewSessionDetail() string {
 
 // ─── Shared Renderers ────────────────────────────────────────────────────────
 
-func (m Model) renderObservationListItem(index int, id int64, obsType, title, content, createdAt string, project *string, sessionStatus string) string {
+func (m Model) renderObservationListItem(index int, id int64, obsType, title, content, createdAt string, project *string) string {
 	cursor := "  "
 	style := listItemStyle
 	if index == m.Cursor {
@@ -496,22 +486,16 @@ func (m Model) renderObservationListItem(index int, id int64, obsType, title, co
 		style = listSelectedStyle
 	}
 
-	badge := ""
-	if sessionStatus == "active" {
-		badge = " " + activeBadgeStyle.Render("(active)")
-	}
-
 	proj := ""
 	if project != nil {
 		proj = "  " + projectStyle.Render(*project)
 	}
 
-	line := fmt.Sprintf("%s%s %s %s%s%s  %s\n",
+	line := fmt.Sprintf("%s%s %s %s%s  %s\n",
 		cursor,
 		idStyle.Render(fmt.Sprintf("#%-5d", id)),
 		typeBadgeStyle.Render(fmt.Sprintf("[%-12s]", obsType)),
 		style.Render(truncateStr(title, 50)),
-		badge,
 		proj,
 		timestampStyle.Render(createdAt))
 
