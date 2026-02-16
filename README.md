@@ -137,7 +137,7 @@ See [OpenCode Plugin](#opencode-plugin) for details.
 
 ### Claude Code
 
-Add to your `.claude/settings.json`:
+Add to your `.claude/settings.json` (project) or `~/.claude/settings.json` (global):
 
 ```json
 {
@@ -148,6 +148,27 @@ Add to your `.claude/settings.json`:
     }
   }
 }
+```
+
+### Gemini CLI
+
+Add to your `~/.gemini/settings.json` (global) or `.gemini/settings.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "engram": {
+      "command": "engram",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Or via the CLI:
+
+```bash
+gemini mcp add engram engram mcp
 ```
 
 ### Cursor
@@ -200,6 +221,14 @@ You have access to Engram persistent memory via MCP tools (mem_save, mem_search,
 ```
 After any compaction or context reset, call mem_context to recover session state before continuing.
 Save memories proactively with mem_save after significant work.
+```
+
+**For Gemini CLI** (`GEMINI.md`):
+```markdown
+## Memory
+You have access to Engram persistent memory via MCP tools (mem_save, mem_search, mem_session_summary, etc.).
+- Save proactively after significant work — don't wait to be asked.
+- After any compaction or context reset, call `mem_context` to recover session state before continuing.
 ```
 
 **For Cursor/Windsurf** (`.cursorrules` or `.windsurfrules`):
