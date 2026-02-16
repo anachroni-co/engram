@@ -46,6 +46,12 @@ That's it. No Node.js, no Python, no Bun, no Docker, no ChromaDB, no vector data
 
 ## How It Works
 
+<p align="center">
+  <img src="assets/agent-save.png" alt="Agent saving a memory via mem_save" width="800" />
+  <br />
+  <em>The agent proactively calls <code>mem_save</code> after significant work — structured, searchable, no noise.</em>
+</p>
+
 Engram trusts the **agent** to decide what's worth remembering — not a firehose of raw tool calls.
 
 ### The Agent Saves, Engram Stores
@@ -249,6 +255,15 @@ Interactive terminal UI for browsing your memory. Built with [Bubbletea](https:/
 engram tui
 ```
 
+<p align="center">
+  <img src="assets/tui-dashboard.png" alt="TUI Dashboard" width="400" />
+  <img src="assets/tui-recent.png" alt="TUI Recent Observations" width="400" />
+</p>
+<p align="center">
+  <img src="assets/tui-detail.png" alt="TUI Observation Detail" width="400" />
+  <img src="assets/tui-search.png" alt="TUI Search Results" width="400" />
+</p>
+
 **Screens**: Dashboard, Search, Recent Observations, Observation Detail, Timeline, Sessions, Session Detail
 
 **Navigation**: `j/k` vim keys, `Enter` to drill in, `t` for timeline, `/` to search, `Esc` to go back
@@ -258,6 +273,7 @@ engram tui
 - `(active)` badges on live sessions, sorted to the top
 - Scroll indicators for long lists
 - Full FTS5 search from the TUI
+- Live data refresh on back-navigation
 
 ## CLI
 
@@ -272,6 +288,7 @@ engram context [project]  Recent context from previous sessions
 engram stats              Memory statistics
 engram export [file]      Export all memories to JSON
 engram import <file>      Import memories from JSON
+engram version            Show version
 ```
 
 ## OpenCode Plugin
@@ -281,10 +298,9 @@ For [OpenCode](https://opencode.ai) users, a thin TypeScript plugin adds enhance
 ```bash
 # Copy the plugin — auto-loaded from the plugins directory
 cp plugin/opencode/engram.ts ~/.config/opencode/plugins/
-
-# The plugin needs the HTTP server for session tracking
-engram serve &
 ```
+
+The plugin auto-starts the HTTP server if it's not already running — no manual `engram serve` needed.
 
 The plugin:
 - **Auto-starts** the engram server if not running
@@ -335,6 +351,7 @@ engram/
 │       └── view.go                 # Rendering, per-screen views
 ├── plugin/
 │   └── opencode/engram.ts          # OpenCode adapter plugin
+├── assets/                         # Screenshots and media
 ├── DOCS.md                         # Full technical documentation
 ├── go.mod
 └── go.sum
