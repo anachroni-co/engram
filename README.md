@@ -9,9 +9,9 @@
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
   <a href="#how-it-works">How It Works</a> &bull;
+  <a href="#agent-setup">Agent Setup</a> &bull;
   <a href="#why-not-claude-mem">Why Not claude-mem?</a> &bull;
   <a href="#tui">Terminal UI</a> &bull;
-  <a href="#mcp-tools">MCP Tools</a> &bull;
   <a href="DOCS.md">Full Docs</a>
 </p>
 
@@ -25,7 +25,7 @@ A **Go binary** with SQLite + FTS5 full-text search, exposed via CLI, HTTP API, 
 
 ```
 Agent (OpenCode / Claude Code / Cursor / Windsurf / ...)
-    ↓ MCP stdio or HTTP
+    ↓ MCP stdio
 Engram (single Go binary)
     ↓
 SQLite + FTS5 (~/.engram/engram.db)
@@ -35,28 +35,14 @@ SQLite + FTS5 (~/.engram/engram.db)
 
 ```bash
 # Install from source
-git clone https://github.com/alanbuscaglia/engram.git
+git clone https://github.com/Alan-TheGentleman/engram.git
 cd engram
 go install ./cmd/engram
-
-# Add to any MCP-compatible agent
-# (add this to your agent's MCP config)
-{
-  "engram": {
-    "type": "stdio",
-    "command": "engram",
-    "args": ["mcp"]
-  }
-}
-
-# Or start the HTTP server for plugin integrations
-engram serve
-
-# Browse your memories interactively
-engram tui
 ```
 
-That's it. No Node.js, no Python, no Bun, no Docker, no ChromaDB, no vector database, no worker processes, no web server to keep running. **One binary, one SQLite file.**
+Then add Engram to your agent's MCP config — see [Agent Setup](#agent-setup) below.
+
+That's it. No Node.js, no Python, no Bun, no Docker, no ChromaDB, no vector database, no worker processes. **One binary, one SQLite file.**
 
 ## How It Works
 
@@ -108,6 +94,115 @@ Token-efficient memory retrieval — don't dump everything, drill in:
 2. mem_timeline observation_id=42  → what happened before/after in that session
 3. mem_get_observation id=42       → full untruncated content
 ```
+
+## Agent Setup
+
+Engram works with **any MCP-compatible agent**. Add it to your agent's MCP config:
+
+### OpenCode
+
+Add to your `opencode.json` (global: `~/.config/opencode/opencode.json` or project-level):
+
+```json
+{
+  "mcp": {
+    "engram": {
+      "type": "local",
+      "command": ["engram", "mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Optional: OpenCode plugin** for enhanced session management (auto-session tracking, compaction memory persistence, system prompt injection):
+
+```bash
+cp plugin/opencode/engram.ts ~/.config/opencode/plugins/
+```
+
+The plugin is auto-loaded from `~/.config/opencode/plugins/` — no config changes needed. It also needs the HTTP server running for session tracking:
+
+```bash
+engram serve &
+```
+
+See [OpenCode Plugin](#opencode-plugin) for details.
+
+### Claude Code
+
+Add to your `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "engram": {
+      "command": "engram",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to your `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "engram": {
+      "command": "engram",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to your `~/.windsurf/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "engram": {
+      "command": "engram",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Any other MCP agent
+
+The pattern is always the same — point your agent's MCP config to `engram mcp` via stdio transport.
+
+### Surviving Compaction (Recommended)
+
+When your agent compacts (summarizes long conversations to free context), it starts fresh — and might forget about Engram. To make memory truly resilient, add this to your agent's system prompt or config file:
+
+**For Claude Code** (`CLAUDE.md`):
+```markdown
+## Memory
+You have access to Engram persistent memory via MCP tools (mem_save, mem_search, mem_session_summary, etc.).
+- Save proactively after significant work — don't wait to be asked.
+- After any compaction or context reset, call `mem_context` to recover session state before continuing.
+```
+
+**For OpenCode** (agent prompt in `opencode.json`):
+```
+After any compaction or context reset, call mem_context to recover session state before continuing.
+Save memories proactively with mem_save after significant work.
+```
+
+**For Cursor/Windsurf** (`.cursorrules` or `.windsurfrules`):
+```
+You have access to Engram persistent memory (mem_save, mem_search, mem_context).
+Save proactively after significant work. After context resets, call mem_context to recover state.
+```
+
+This is the **nuclear option** — system prompts survive everything, including compaction.
 
 ## Why Not claude-mem?
 
@@ -181,24 +276,36 @@ engram import <file>      Import memories from JSON
 
 ## OpenCode Plugin
 
-For [OpenCode](https://opencode.ai) users, a thin TypeScript plugin handles session management and context injection:
+For [OpenCode](https://opencode.ai) users, a thin TypeScript plugin adds enhanced session management on top of the MCP tools:
 
 ```bash
-# Copy the plugin
+# Copy the plugin — auto-loaded from the plugins directory
 cp plugin/opencode/engram.ts ~/.config/opencode/plugins/
 
-# Install plugin dependency
-cd ~/.config/opencode && npm install @opencode-ai/plugin
+# The plugin needs the HTTP server for session tracking
+engram serve &
 ```
 
 The plugin:
-- Auto-starts the engram server if not running
-- Creates sessions on-demand (resilient to restarts/reconnects)
-- Captures user prompts
-- Injects `MEMORY_INSTRUCTIONS` + previous session context during compaction
-- Strips `<private>` tags before sending data
+- **Auto-starts** the engram server if not running
+- **Creates sessions** on-demand via `ensureSession()` (resilient to restarts/reconnects)
+- **Injects `MEMORY_INSTRUCTIONS`** into the agent's system prompt via `chat.system.transform` — the agent always knows about Engram, even after compaction
+- **Auto-saves a checkpoint** when compaction is triggered (guarantees something is persisted even if the agent never called `mem_save`)
+- **Injects previous session context** into the compaction prompt
+- **Instructs the compressor** to remind the new agent to call `mem_session_summary`
+- **Strips `<private>` tags** before sending data
 
 **No raw tool call recording** — the agent handles all memory via `mem_save` and `mem_session_summary`.
+
+### Three Layers of Memory Resilience
+
+The OpenCode plugin uses a defense-in-depth strategy to ensure memories survive compaction:
+
+| Layer | Mechanism | Survives Compaction? |
+|-------|-----------|---------------------|
+| **System Prompt** | `MEMORY_INSTRUCTIONS` injected via `chat.system.transform` | Always present |
+| **Compaction Hook** | Auto-saves checkpoint + injects context + reminds compressor | Fires during compaction |
+| **Agent Config** | "After compaction, call `mem_context`" in agent prompt | Always present |
 
 ## Privacy
 

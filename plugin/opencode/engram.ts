@@ -255,24 +255,64 @@ export const Engram: Plugin = async (ctx) => {
       }
     },
 
-    // ─── Compaction Hook: Inject memory context + instructions ────
+    // ─── System Prompt: Always-on memory instructions ──────────
+    // Injects MEMORY_INSTRUCTIONS into the system prompt of every message.
+    // This ensures the agent ALWAYS knows about Engram, even after compaction.
+
+    "experimental.chat.system.transform": async (_input, output) => {
+      output.system.push(MEMORY_INSTRUCTIONS)
+    },
+
+    // ─── Compaction Hook: Persist memory + inject context ──────────
+    // Compaction is triggered by the system (not the agent) when context
+    // gets too long. The old agent "dies" and a new one starts with the
+    // compacted summary. This is our chance to:
+    // 1. Auto-save a session checkpoint (the agent can't do this itself)
+    // 2. Inject context from previous sessions into the compaction prompt
+    // 3. Tell the compressor to remind the new agent to save memories
 
     "experimental.session.compacting": async (input, output) => {
-      // Ensure session exists (handles reconnect scenario)
       if (input.sessionID) {
         await ensureSession(input.sessionID)
+
+        // Auto-save a compaction checkpoint observation.
+        // This guarantees SOMETHING is persisted even if the agent
+        // never called mem_save during the session.
+        const count = toolCounts.get(input.sessionID) ?? 0
+        await engramFetch("/observations", {
+          method: "POST",
+          body: {
+            session_id: input.sessionID,
+            title: `Session compacted — ${project}`,
+            content: [
+              `**What**: Session on ${project} was compacted after ${count} tool calls.`,
+              `**Why**: Context window limit reached — system triggered compaction.`,
+              `**Where**: project ${project}`,
+              `**Learned**: Any work not explicitly saved via mem_save before this point may be lost from memory. The agent should call mem_session_summary after resuming.`,
+            ].join("\n"),
+            type: "session",
+            tool_name: "compaction",
+            project,
+          },
+        })
       }
 
-      // 1. Inject memory instructions so the agent knows to save proactively
-      output.context.push(MEMORY_INSTRUCTIONS)
-
-      // 2. Inject context from previous sessions
+      // Inject context from previous sessions
       const data = await engramFetch(
         `/context?project=${encodeURIComponent(project)}`
       )
       if (data?.context) {
         output.context.push(data.context)
       }
+
+      // Tell the compressor to include a memory reminder in the summary.
+      // The new agent reads this and knows it should save what happened.
+      output.context.push(
+        `IMPORTANT: The agent has access to Engram persistent memory (mem_save, mem_session_summary tools). ` +
+        `Include in the compacted summary a reminder that the agent should call mem_session_summary ` +
+        `with a structured summary of what was accomplished so far in this session. ` +
+        `This is critical — without it, the work done before compaction will be lost from memory.`
+      )
     },
   }
 }
