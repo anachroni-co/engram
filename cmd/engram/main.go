@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -460,6 +461,14 @@ func cmdSync(cfg store.Config) {
 		}
 	}
 
+	// Default project to current directory name (so sync only exports
+	// memories for THIS project, not everything in the global DB).
+	if project == "" {
+		if cwd, err := os.Getwd(); err == nil {
+			project = filepath.Base(cwd)
+		}
+	}
+
 	syncDir := ".engram"
 
 	s, err := store.New(cfg)
@@ -508,13 +517,14 @@ func cmdSync(cfg store.Config) {
 
 	// Export: DB → new chunk
 	username := engramsync.GetUsername()
+	fmt.Printf("Exporting memories for project %q...\n", project)
 	result, err := sy.Export(username, project)
 	if err != nil {
 		fatal(err)
 	}
 
 	if result.IsEmpty {
-		fmt.Println("Nothing new to sync — all memories already exported.")
+		fmt.Printf("Nothing new to sync for project %q — all memories already exported.\n", project)
 		return
 	}
 
