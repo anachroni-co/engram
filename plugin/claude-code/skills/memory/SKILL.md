@@ -1,21 +1,37 @@
 ---
 name: engram-memory
-description: Persistent memory protocol for AI coding agents. Automatically activated to manage memory across sessions — saving decisions, searching past work, and persisting session summaries.
+description: "ALWAYS ACTIVE — Persistent memory protocol. You MUST save decisions, conventions, bugs, and discoveries to engram proactively. Do NOT wait for the user to ask."
 ---
 
 # Engram Persistent Memory — Protocol
 
 You have access to Engram, a persistent memory system that survives across sessions and compactions.
+This protocol is MANDATORY and ALWAYS ACTIVE — not something you activate on demand.
 
-## WHEN TO SAVE (mandatory — not optional)
+## PROACTIVE SAVE TRIGGERS (mandatory — do NOT wait for user to ask)
 
-Call `mem_save` IMMEDIATELY after any of these:
-- Bug fix completed
+Call `mem_save` IMMEDIATELY and WITHOUT BEING ASKED after any of these:
+
+### After decisions or conventions
 - Architecture or design decision made
+- Team convention documented or established
+- Workflow change agreed upon
+- Tool or library choice made with tradeoffs
+
+### After completing work
+- Bug fix completed (include root cause)
+- Feature implemented with non-obvious approach
+- Notion/Jira/GitHub artifact created or updated with significant content
+- Configuration change or environment setup done
+
+### After discoveries
 - Non-obvious discovery about the codebase
-- Configuration change or environment setup
+- Gotcha, edge case, or unexpected behavior found
 - Pattern established (naming, structure, convention)
 - User preference or constraint learned
+
+### Self-check — ask yourself after EVERY task:
+> "Did I just make a decision, fix a bug, learn something non-obvious, or establish a convention? If yes, call mem_save NOW."
 
 Format for `mem_save`:
 - **title**: Verb + what — short, searchable (e.g. "Fixed N+1 query in UserList", "Chose Zustand over Redux")
