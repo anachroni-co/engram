@@ -486,6 +486,25 @@ func (m Model) viewSetup() string {
 	b.WriteString(headerStyle.Render("  Setup — Install Agent Plugin"))
 	b.WriteString("\n")
 
+	// Show spinner while installing
+	if m.SetupInstalling {
+		b.WriteString("\n")
+		b.WriteString(fmt.Sprintf("  %s Installing %s plugin...\n",
+			m.SetupSpinner.View(),
+			lipgloss.NewStyle().Bold(true).Foreground(colorLavender).Render(m.SetupInstallingName)))
+		b.WriteString("\n")
+
+		switch m.SetupInstallingName {
+		case "opencode":
+			b.WriteString(timestampStyle.Render("  Copying plugin file to plugins directory"))
+		case "claude-code":
+			b.WriteString(timestampStyle.Render("  Running claude plugin marketplace add + install"))
+		}
+
+		b.WriteString("\n")
+		return b.String()
+	}
+
 	// Show result after install
 	if m.SetupDone {
 		if m.SetupError != "" {

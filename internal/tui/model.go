@@ -13,8 +13,10 @@ import (
 	"github.com/alanbuscaglia/engram/internal/setup"
 	"github.com/alanbuscaglia/engram/internal/store"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // ─── Screens ─────────────────────────────────────────────────────────────────
@@ -115,10 +117,13 @@ type Model struct {
 	SessionDetailScroll int
 
 	// Setup
-	SetupAgents []setup.Agent
-	SetupResult *setup.Result
-	SetupError  string
-	SetupDone   bool
+	SetupAgents         []setup.Agent
+	SetupResult         *setup.Result
+	SetupError          string
+	SetupDone           bool
+	SetupInstalling     bool
+	SetupInstallingName string // agent name being installed (for display)
+	SetupSpinner        spinner.Model
 }
 
 // New creates a new TUI model connected to the given store.
@@ -128,10 +133,15 @@ func New(s *store.Store) Model {
 	ti.CharLimit = 256
 	ti.Width = 60
 
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(colorLavender)
+
 	return Model{
-		store:       s,
-		Screen:      ScreenDashboard,
-		SearchInput: ti,
+		store:        s,
+		Screen:       ScreenDashboard,
+		SearchInput:  ti,
+		SetupSpinner: sp,
 	}
 }
 

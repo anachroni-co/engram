@@ -2,6 +2,7 @@ package tui
 
 import (
 	"github.com/alanbuscaglia/engram/internal/setup"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -95,6 +96,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case setupInstallMsg:
+		m.SetupInstalling = false
 		m.SetupDone = true
 		if msg.err != nil {
 			m.SetupError = msg.err.Error()
@@ -102,6 +104,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.SetupResult = msg.result
 		m.SetupError = ""
+		return m, nil
+
+	case spinner.TickMsg:
+		// Only forward spinner ticks when we're actually installing
+		if m.SetupInstalling {
+			var cmd tea.Cmd
+			m.SetupSpinner, cmd = m.SetupSpinner.Update(msg)
+			return m, cmd
+		}
 		return m, nil
 	}
 
@@ -199,6 +210,8 @@ func (m Model) handleDashboardSelection() (tea.Model, tea.Cmd) {
 		m.SetupResult = nil
 		m.SetupError = ""
 		m.SetupDone = false
+		m.SetupInstalling = false
+		m.SetupInstallingName = ""
 		return m, nil
 	case 4: // Quit
 		return m, tea.Quit
@@ -469,6 +482,11 @@ func (m Model) handleSessionDetailKeys(key string) (tea.Model, tea.Cmd) {
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
 func (m Model) handleSetupKeys(key string) (tea.Model, tea.Cmd) {
+	// While installing, block all keys
+	if m.SetupInstalling {
+		return m, nil
+	}
+
 	// After install completed, any key goes back
 	if m.SetupDone {
 		switch key {
@@ -495,7 +513,9 @@ func (m Model) handleSetupKeys(key string) (tea.Model, tea.Cmd) {
 	case "enter":
 		if len(m.SetupAgents) > 0 && m.Cursor < len(m.SetupAgents) {
 			agent := m.SetupAgents[m.Cursor]
-			return m, installAgent(agent.Name)
+			m.SetupInstalling = true
+			m.SetupInstallingName = agent.Name
+			return m, tea.Batch(m.SetupSpinner.Tick, installAgent(agent.Name))
 		}
 	case "esc", "q":
 		m.Screen = ScreenDashboard
