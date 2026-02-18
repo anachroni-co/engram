@@ -603,9 +603,8 @@ func printPostInstall(agent string) {
 	switch agent {
 	case "opencode":
 		fmt.Println("\nNext steps:")
-		fmt.Println("  1. Restart OpenCode")
-		fmt.Println("  2. The plugin is auto-loaded from ~/.config/opencode/plugins/")
-		fmt.Println("  3. Make sure 'engram' is in your MCP config (opencode.json)")
+		fmt.Println("  1. Restart OpenCode — plugin + MCP server are ready")
+		fmt.Println("  2. Run 'engram serve &' for session tracking (HTTP API)")
 	case "claude-code":
 		fmt.Println("\nNext steps:")
 		fmt.Println("  1. Restart Claude Code — the plugin is active immediately")
