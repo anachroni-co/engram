@@ -449,6 +449,7 @@ func cmdSync(cfg store.Config) {
 	// Parse flags
 	doImport := false
 	doStatus := false
+	doAll := false
 	project := ""
 	for i := 2; i < len(os.Args); i++ {
 		switch os.Args[i] {
@@ -456,6 +457,8 @@ func cmdSync(cfg store.Config) {
 			doImport = true
 		case "--status":
 			doStatus = true
+		case "--all":
+			doAll = true
 		case "--project":
 			if i+1 < len(os.Args) {
 				project = os.Args[i+1]
@@ -466,7 +469,8 @@ func cmdSync(cfg store.Config) {
 
 	// Default project to current directory name (so sync only exports
 	// memories for THIS project, not everything in the global DB).
-	if project == "" {
+	// --all skips project filtering entirely — exports everything.
+	if !doAll && project == "" {
 		if cwd, err := os.Getwd(); err == nil {
 			project = filepath.Base(cwd)
 		}
@@ -520,14 +524,22 @@ func cmdSync(cfg store.Config) {
 
 	// Export: DB → new chunk
 	username := engramsync.GetUsername()
-	fmt.Printf("Exporting memories for project %q...\n", project)
+	if doAll {
+		fmt.Println("Exporting ALL memories (all projects)...")
+	} else {
+		fmt.Printf("Exporting memories for project %q...\n", project)
+	}
 	result, err := sy.Export(username, project)
 	if err != nil {
 		fatal(err)
 	}
 
 	if result.IsEmpty {
-		fmt.Printf("Nothing new to sync for project %q — all memories already exported.\n", project)
+		if doAll {
+			fmt.Println("Nothing new to sync — all memories already exported.")
+		} else {
+			fmt.Printf("Nothing new to sync for project %q — all memories already exported.\n", project)
+		}
 		return
 	}
 
@@ -625,6 +637,7 @@ Commands:
                        --import   Import new chunks from .engram/ into local DB
                        --status   Show sync status (local vs remote chunks)
                        --project  Filter export to a specific project
+                       --all      Export ALL projects (ignore directory-based filter)
   version            Print version
   help               Show this help
 

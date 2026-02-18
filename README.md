@@ -360,6 +360,9 @@ Share memories across machines and team members by committing them to your repo.
 # (automatically filters by current directory name as project)
 engram sync
 
+# Export ALL memories from every project (useful for a shared notes repo)
+engram sync --all
+
 # Commit to git
 git add .engram/ && git commit -m "sync engram memories"
 
@@ -408,6 +411,7 @@ engram stats              Memory statistics
 engram export [file]      Export all memories to JSON
 engram import <file>      Import memories from JSON
 engram sync               Export new memories as compressed chunk to .engram/
+engram sync --all         Export ALL projects (ignore directory-based filter)
 engram version            Show version
 ```
 

@@ -95,7 +95,7 @@ engram context [project]  Show recent context from previous sessions
 engram stats              Show memory system statistics
 engram export [file]      Export all memories to JSON (default: engram-export.json)
 engram import <file>      Import memories from a JSON export file
-engram sync               Export new memories as chunk [--import] [--status] [--project NAME]
+engram sync               Export new memories as chunk [--import] [--status] [--project NAME] [--all]
 engram version            Print version
 engram help               Show help
 ```
@@ -325,6 +325,7 @@ Share memories across machines, backup, or migrate:
 Share memories through git repositories using compressed chunks with a manifest index.
 
 - `engram sync` — Exports new memories as a gzipped JSONL chunk to `.engram/chunks/`
+- `engram sync --all` — Exports ALL memories from every project (ignores directory-based filter)
 - `engram sync --import` — Imports chunks listed in the manifest that haven't been imported yet
 - `engram sync --status` — Shows how many chunks exist locally vs remotely, and how many are pending import
 - `engram sync --project NAME` — Filters export to a specific project
